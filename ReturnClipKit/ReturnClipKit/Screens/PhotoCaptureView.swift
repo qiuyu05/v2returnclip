@@ -13,35 +13,37 @@ struct PhotoCaptureView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: RCSpacing.xl) {
                 // Header
                 headerSection
+                    .slideIn(delay: 0.1)
                 
                 // Demo video button
                 if flowState.policy?.demoVideoUrl != nil {
                     demoVideoButton
+                        .slideIn(delay: 0.15)
                 }
                 
                 // Photo guidelines
                 guidelinesSection
+                    .slideIn(delay: 0.2)
                 
                 // Photo capture area
                 photoCaptureSection
+                    .slideIn(delay: 0.25)
                 
                 // Photo preview grid
                 if !flowState.capturedPhotos.isEmpty {
                     photoPreviewGrid
-                }
-                
-                // Upload progress
-                if flowState.isLoading {
-                    uploadProgressView
+                        .slideIn(delay: 0.1)
                 }
                 
                 Spacer(minLength: 100)
             }
-            .padding()
+            .padding(.horizontal, RCSpacing.lg)
+            .padding(.top, RCSpacing.sm)
         }
+        .background(Color.rcSurface)
         .photosPicker(
             isPresented: $showingImagePicker,
             selection: $selectedPhotos,
@@ -58,50 +60,87 @@ struct PhotoCaptureView: View {
     // MARK: - Components
     
     private var headerSection: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "camera.viewfinder")
-                .font(.system(size: 48))
-                .foregroundColor(.blue)
+        VStack(spacing: RCSpacing.md) {
+            ZStack {
+                Circle()
+                    .fill(Color.rcPrimary.opacity(0.1))
+                    .frame(width: 80, height: 80)
+                
+                Image(systemName: "camera.viewfinder")
+                    .font(.system(size: 36))
+                    .foregroundStyle(LinearGradient.rcPrimary)
+            }
+            .bounceAppear(delay: 0.1)
             
             Text("Photo Verification")
-                .font(.title2)
-                .fontWeight(.bold)
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .foregroundColor(.rcTextPrimary)
             
             Text("Take \(requiredPhotoCount) photos of your item")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(.rcTextSecondary)
             
-            // Progress indicator
-            HStack(spacing: 8) {
+            // Progress dots
+            HStack(spacing: RCSpacing.md) {
                 ForEach(0..<requiredPhotoCount, id: \.self) { index in
-                    Circle()
-                        .fill(index < flowState.capturedPhotos.count ? Color.blue : Color.gray.opacity(0.3))
-                        .frame(width: 10, height: 10)
+                    ZStack {
+                        Circle()
+                            .fill(index < flowState.capturedPhotos.count ? Color.rcPrimary : Color.rcBorder.opacity(0.5))
+                            .frame(width: 12, height: 12)
+                        
+                        if index < flowState.capturedPhotos.count {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .scaleEffect(index < flowState.capturedPhotos.count ? 1.0 : 0.85)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: flowState.capturedPhotos.count)
                 }
             }
-            .padding(.top, 8)
+            .padding(.top, RCSpacing.xs)
         }
-        .padding(.top)
+        .padding(.top, RCSpacing.lg)
     }
     
     private var demoVideoButton: some View {
         Button {
             showDemoVideo = true
         } label: {
-            HStack {
-                Image(systemName: "play.circle.fill")
-                    .font(.title2)
-                Text("Watch: How to photograph your item")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+            HStack(spacing: RCSpacing.md) {
+                ZStack {
+                    Circle()
+                        .fill(Color.rcPrimary.opacity(0.1))
+                        .frame(width: 36, height: 36)
+                    
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.rcPrimary)
+                }
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("How to photograph your item")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.rcTextPrimary)
+                    Text("Watch a 15-second guide")
+                        .font(.caption)
+                        .foregroundColor(.rcTextSecondary)
+                }
+                
                 Spacer()
+                
                 Image(systemName: "chevron.right")
-                    .font(.caption)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.rcTextMuted)
             }
-            .foregroundColor(.blue)
-            .padding()
-            .background(Color.blue.opacity(0.1))
-            .cornerRadius(12)
+            .padding(RCSpacing.lg)
+            .background(Color.rcSurfaceElevated)
+            .cornerRadius(RCRadius.lg)
+            .overlay(
+                RoundedRectangle(cornerRadius: RCRadius.lg)
+                    .stroke(Color.rcBorder.opacity(0.6), lineWidth: 1)
+            )
+            .rcShadowCard()
         }
         .sheet(isPresented: $showDemoVideo) {
             DemoVideoView()
@@ -109,87 +148,85 @@ struct PhotoCaptureView: View {
     }
     
     private var guidelinesSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: RCSpacing.md) {
             Text("Photo Guidelines")
-                .font(.headline)
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundColor(.rcTextPrimary)
             
-            GuidelineRow(icon: "1.circle.fill", text: "Front view - entire item visible")
-            GuidelineRow(icon: "2.circle.fill", text: "Back/underside - show all angles")
-            GuidelineRow(icon: "3.circle.fill", text: "Close-up of any damage or wear")
+            GuidelineRow(icon: "1.circle.fill", text: "Front view — entire item visible", color: .rcPrimary)
+            GuidelineRow(icon: "2.circle.fill", text: "Back/underside — show all angles", color: .rcPrimary)
+            GuidelineRow(icon: "3.circle.fill", text: "Close-up of any damage or wear", color: .rcPrimary)
             
-            HStack {
+            HStack(spacing: RCSpacing.sm) {
                 Image(systemName: "lightbulb.fill")
-                    .foregroundColor(.yellow)
-                Text("Good lighting helps us assess faster")
+                    .foregroundColor(.rcWarning)
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                Text("Good lighting helps our AI assess faster")
+                    .font(.system(size: 12))
+                    .foregroundColor(.rcTextSecondary)
             }
-            .padding(.top, 4)
+            .padding(.top, RCSpacing.xs)
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .rcCard()
     }
     
     private var photoCaptureSection: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: RCSpacing.md) {
             // Camera button
             Button {
+                RCHaptics.impact(.medium)
                 showingCamera = true
             } label: {
-                HStack {
+                HStack(spacing: RCSpacing.sm) {
                     Image(systemName: "camera.fill")
-                        .font(.title2)
+                        .font(.system(size: 18))
                     Text("Take Photo")
-                        .fontWeight(.semibold)
                 }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .cornerRadius(12)
             }
+            .buttonStyle(RCPrimaryButtonStyle())
             
             // Photo library button
             Button {
+                RCHaptics.selection()
                 showingImagePicker = true
             } label: {
-                HStack {
+                HStack(spacing: RCSpacing.sm) {
                     Image(systemName: "photo.on.rectangle")
-                        .font(.title2)
+                        .font(.system(size: 18))
                     Text("Choose from Library")
-                        .fontWeight(.semibold)
                 }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color(.systemGray5))
-                .foregroundColor(.primary)
-                .cornerRadius(12)
             }
+            .buttonStyle(RCSecondaryButtonStyle())
         }
     }
     
     private var photoPreviewGrid: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: RCSpacing.md) {
             HStack {
                 Text("Your Photos")
-                    .font(.headline)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundColor(.rcTextPrimary)
                 Spacer()
                 Text("\(flowState.capturedPhotos.count)/\(requiredPhotoCount)")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(.rcPrimary)
+                    .padding(.horizontal, RCSpacing.sm)
+                    .padding(.vertical, RCSpacing.xs)
+                    .background(Color.rcPrimary.opacity(0.1))
+                    .cornerRadius(RCRadius.full)
             }
             
             LazyVGrid(columns: [
                 GridItem(.flexible()),
                 GridItem(.flexible()),
                 GridItem(.flexible())
-            ], spacing: 12) {
+            ], spacing: RCSpacing.md) {
                 ForEach(flowState.capturedPhotos.indices, id: \.self) { index in
                     PhotoPreviewCell(
                         imageData: flowState.capturedPhotos[index],
                         onDelete: {
-                            withAnimation {
+                            withAnimation(.spring(response: 0.3)) {
+                                RCHaptics.impact(.light)
                                 flowState.capturedPhotos.remove(at: index)
                             }
                         }
@@ -197,16 +234,6 @@ struct PhotoCaptureView: View {
                 }
             }
         }
-    }
-    
-    private var uploadProgressView: some View {
-        VStack(spacing: 12) {
-            ProgressView()
-            Text("Analyzing photos...")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-        }
-        .padding()
     }
     
     // MARK: - Methods
@@ -228,14 +255,17 @@ struct PhotoCaptureView: View {
 struct GuidelineRow: View {
     let icon: String
     let text: String
+    var color: Color = .rcPrimary
     
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: RCSpacing.md) {
             Image(systemName: icon)
-                .foregroundColor(.blue)
+                .foregroundColor(color)
+                .font(.system(size: 18))
                 .frame(width: 24)
             Text(text)
-                .font(.subheadline)
+                .font(.system(size: 14))
+                .foregroundColor(.rcTextSecondary)
         }
     }
 }
@@ -252,16 +282,25 @@ struct PhotoPreviewCell: View {
                     .aspectRatio(contentMode: .fill)
                     .frame(height: 100)
                     .clipped()
-                    .cornerRadius(8)
+                    .cornerRadius(RCRadius.md)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: RCRadius.md)
+                            .stroke(Color.rcBorder, lineWidth: 1)
+                    )
             }
             
             Button(action: onDelete) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.title3)
-                    .foregroundColor(.white)
-                    .background(Circle().fill(Color.black.opacity(0.5)))
+                ZStack {
+                    Circle()
+                        .fill(Color.black.opacity(0.6))
+                        .frame(width: 24, height: 24)
+                    
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                }
             }
-            .padding(4)
+            .padding(6)
         }
     }
 }
@@ -273,23 +312,32 @@ struct DemoVideoView: View {
         NavigationView {
             VStack {
                 // Placeholder for video player
-                Rectangle()
-                    .fill(Color.black)
-                    .aspectRatio(16/9, contentMode: .fit)
-                    .overlay(
-                        VStack {
+                ZStack {
+                    RoundedRectangle(cornerRadius: RCRadius.lg)
+                        .fill(Color.black)
+                        .aspectRatio(16/9, contentMode: .fit)
+                    
+                    VStack(spacing: RCSpacing.lg) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.white.opacity(0.2))
+                                .frame(width: 80, height: 80)
+                            
                             Image(systemName: "play.circle.fill")
-                                .font(.system(size: 64))
-                                .foregroundColor(.white)
-                            Text("Demo video would play here")
+                                .font(.system(size: 60))
                                 .foregroundColor(.white)
                         }
-                    )
-                    .cornerRadius(12)
-                    .padding()
+                        
+                        Text("Demo video would play here")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                }
+                .padding()
                 
                 Spacer()
             }
+            .background(Color.rcSurface)
             .navigationTitle("How to Photograph")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -297,6 +345,8 @@ struct DemoVideoView: View {
                     Button("Done") {
                         dismiss()
                     }
+                    .foregroundColor(.rcPrimary)
+                    .fontWeight(.semibold)
                 }
             }
         }

@@ -15,16 +15,20 @@ struct ReturnClipExperience: View {
     var body: some View {
         NavigationView {
             ZStack {
+                // Background gradient
+                Color.rcSurface
+                    .ignoresSafeArea()
+                
                 // Main content
                 VStack(spacing: 0) {
-                    // Progress bar
-                    progressBar
+                    // Step indicator
+                    StepIndicator(currentStep: flowState.currentStep)
                     
                     // Current screen
                     currentScreen
                         .transition(.asymmetric(
-                            insertion: .move(edge: .trailing),
-                            removal: .move(edge: .leading)
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
                         ))
                     
                     // Bottom navigation
@@ -42,13 +46,21 @@ struct ReturnClipExperience: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if flowState.currentStep != .orderConfirmation {
                         Button {
+                            RCHaptics.impact(.light)
                             flowState.previousStep()
                         } label: {
-                            Image(systemName: "chevron.left")
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("Back")
+                                    .font(.subheadline)
+                            }
+                            .foregroundColor(.rcPrimary)
                         }
                     }
                 }
             }
+            .toolbarBackground(Color.rcSurfaceElevated, for: .navigationBar)
         }
         .onAppear {
             loadOrderData()
@@ -61,21 +73,6 @@ struct ReturnClipExperience: View {
     }
     
     // MARK: - Views
-    
-    private var progressBar: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.2))
-                
-                Rectangle()
-                    .fill(Color.blue)
-                    .frame(width: geo.size.width * flowState.currentStep.progress)
-                    .animation(.easeInOut(duration: 0.3), value: flowState.currentStep)
-            }
-        }
-        .frame(height: 4)
-    }
     
     @ViewBuilder
     private var currentScreen: some View {
@@ -97,66 +94,86 @@ struct ReturnClipExperience: View {
     
     private var bottomNavigation: some View {
         VStack(spacing: 0) {
-            Divider()
+            // Subtle top border
+            Rectangle()
+                .fill(Color.rcBorder.opacity(0.5))
+                .frame(height: 1)
             
             HStack {
                 if flowState.currentStep == .confirmation {
                     // Done button
                     Button {
-                        // Close clip or return to app
+                        RCHaptics.success()
                     } label: {
-                        Text("Done")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(Color.green)
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
+                        HStack(spacing: RCSpacing.sm) {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Done")
+                        }
                     }
+                    .buttonStyle(RCPrimaryButtonStyle())
                 } else {
                     // Continue button
                     Button {
+                        RCHaptics.impact(.medium)
                         handleContinue()
                     } label: {
-                        HStack {
+                        HStack(spacing: RCSpacing.sm) {
                             Text(continueButtonText)
-                                .fontWeight(.semibold)
                             if flowState.isLoading {
                                 ProgressView()
                                     .tint(.white)
+                                    .scaleEffect(0.8)
+                            } else {
+                                Image(systemName: "arrow.right")
+                                    .font(.system(size: 14, weight: .semibold))
                             }
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(flowState.canProceed ? Color.blue : Color.gray)
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
                     }
+                    .buttonStyle(RCPrimaryButtonStyle(isEnabled: flowState.canProceed))
                     .disabled(!flowState.canProceed || flowState.isLoading)
                 }
             }
-            .padding()
-            .background(Color(.systemBackground))
+            .padding(.horizontal, RCSpacing.lg)
+            .padding(.top, RCSpacing.md)
+            .padding(.bottom, RCSpacing.xl)
+            .background(
+                Color.rcSurfaceElevated
+                    .shadow(color: .black.opacity(0.06), radius: 12, x: 0, y: -4)
+            )
         }
     }
     
     private var loadingOverlay: some View {
         ZStack {
-            Color.black.opacity(0.3)
+            Color.black.opacity(0.4)
                 .ignoresSafeArea()
             
-            VStack(spacing: 16) {
-                ProgressView()
-                    .scaleEffect(1.5)
-                    .tint(.white)
+            VStack(spacing: RCSpacing.lg) {
+                // Animated pulse ring
+                ZStack {
+                    Circle()
+                        .stroke(Color.rcPrimary.opacity(0.2), lineWidth: 4)
+                        .frame(width: 60, height: 60)
+                    
+                    ProgressView()
+                        .scaleEffect(1.3)
+                        .tint(.rcPrimary)
+                }
                 
                 Text(loadingText)
-                    .foregroundColor(.white)
-                    .font(.headline)
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(.rcTextPrimary)
+                
+                Text("This usually takes a few seconds")
+                    .font(.caption)
+                    .foregroundColor(.rcTextSecondary)
             }
-            .padding(32)
-            .background(Color(.systemGray5).opacity(0.9))
-            .cornerRadius(16)
+            .padding(RCSpacing.xxl)
+            .background(
+                RoundedRectangle(cornerRadius: RCRadius.xl)
+                    .fill(.ultraThinMaterial)
+            )
+            .rcShadowElevated()
         }
     }
     
@@ -176,7 +193,7 @@ struct ReturnClipExperience: View {
     private var loadingText: String {
         switch flowState.currentStep {
         case .photoCapture: return "Uploading photos..."
-        case .conditionResult: return "Analyzing condition..."
+        case .conditionResult: return "AI is analyzing condition..."
         default: return "Processing..."
         }
     }
@@ -235,7 +252,7 @@ struct ReturnClipExperience: View {
                 
                 // 4. Update state
                 await MainActor.run {
-                    flowState.conditionAssessment = MockData.excellentConditionAssessment  // Use mock for demo
+                    flowState.conditionAssessment = MockData.excellentConditionAssessment
                     flowState.refundDecision = decision
                     flowState.isLoading = false
                     flowState.nextStep()
@@ -258,6 +275,7 @@ struct ReturnClipExperience: View {
         
         // Simulate API call to create return
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            RCHaptics.success()
             flowState.isLoading = false
             flowState.nextStep()
         }

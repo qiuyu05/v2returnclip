@@ -6,20 +6,24 @@ struct OrderConfirmationView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: RCSpacing.xl) {
                 // Header
                 headerSection
+                    .slideIn(delay: 0.1)
                 
                 // Order Info
                 if let order = flowState.order {
                     orderInfoCard(order)
+                        .slideIn(delay: 0.2)
                     
                     // Items to return
                     itemSelectionSection(order)
+                        .slideIn(delay: 0.3)
                     
                     // Return window status
                     if let policy = flowState.policy {
                         returnWindowCard(order: order, policy: policy)
+                            .slideIn(delay: 0.4)
                     }
                 } else {
                     loadingView
@@ -27,65 +31,91 @@ struct OrderConfirmationView: View {
                 
                 Spacer(minLength: 100)
             }
-            .padding()
+            .padding(.horizontal, RCSpacing.lg)
+            .padding(.top, RCSpacing.sm)
         }
+        .background(Color.rcSurface)
     }
     
     // MARK: - Components
     
     private var headerSection: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "shippingbox.and.arrow.backward.fill")
-                .font(.system(size: 48))
-                .foregroundColor(.blue)
+        VStack(spacing: RCSpacing.sm) {
+            ZStack {
+                Circle()
+                    .fill(Color.rcPrimary.opacity(0.1))
+                    .frame(width: 80, height: 80)
+                
+                Image(systemName: "shippingbox.and.arrow.backward.fill")
+                    .font(.system(size: 36))
+                    .foregroundStyle(LinearGradient.rcPrimary)
+            }
+            .bounceAppear(delay: 0.1)
             
             Text("Start Your Return")
-                .font(.title2)
-                .fontWeight(.bold)
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .foregroundColor(.rcTextPrimary)
             
-            Text("Confirm your order details")
+            Text("Confirm your order details below")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(.rcTextSecondary)
         }
-        .padding(.top)
+        .padding(.top, RCSpacing.lg)
     }
     
     private func orderInfoCard(_ order: Order) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: RCSpacing.md) {
             HStack {
-                Text(order.orderNumber)
-                    .font(.headline)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(order.orderNumber)
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                        .foregroundColor(.rcTextPrimary)
+                    Text(order.formattedDate)
+                        .font(.caption)
+                        .foregroundColor(.rcTextSecondary)
+                }
                 Spacer()
-                Text(order.formattedDate)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                // Currency badge
+                Text(order.currency)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundColor(.rcPrimary)
+                    .padding(.horizontal, RCSpacing.sm)
+                    .padding(.vertical, RCSpacing.xs)
+                    .background(Color.rcPrimary.opacity(0.1))
+                    .cornerRadius(RCRadius.full)
             }
             
             Divider()
+                .background(Color.rcBorder)
             
-            HStack {
-                Image(systemName: "mappin.circle.fill")
-                    .foregroundColor(.blue)
-                Text(order.purchaseLocation)
-                    .font(.subheadline)
-            }
-            
-            HStack {
-                Image(systemName: "creditcard.fill")
-                    .foregroundColor(.blue)
-                Text(order.paymentMethod.displayName)
-                    .font(.subheadline)
+            HStack(spacing: RCSpacing.lg) {
+                HStack(spacing: RCSpacing.sm) {
+                    Image(systemName: "mappin.circle.fill")
+                        .foregroundColor(.rcPrimary)
+                    Text(order.purchaseLocation)
+                        .font(.subheadline)
+                        .foregroundColor(.rcTextSecondary)
+                }
+                
+                Spacer()
+                
+                HStack(spacing: RCSpacing.sm) {
+                    Image(systemName: "creditcard.fill")
+                        .foregroundColor(.rcPrimary)
+                    Text(order.paymentMethod.displayName)
+                        .font(.subheadline)
+                        .foregroundColor(.rcTextSecondary)
+                }
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .rcCard()
     }
     
     private func itemSelectionSection(_ order: Order) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: RCSpacing.md) {
             Text("Select item to return")
-                .font(.headline)
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundColor(.rcTextPrimary)
             
             ForEach(order.lineItems) { item in
                 itemCard(item)
@@ -95,58 +125,61 @@ struct OrderConfirmationView: View {
     
     private func itemCard(_ item: LineItem) -> some View {
         Button {
-            withAnimation {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                RCHaptics.selection()
                 flowState.selectedItem = item
             }
         } label: {
-            HStack(spacing: 16) {
-                // Product image placeholder
+            HStack(spacing: RCSpacing.lg) {
+                // Product image
                 AsyncImage(url: URL(string: item.imageUrl ?? "")) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                 } placeholder: {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.2))
-                        .overlay(
-                            Image(systemName: "photo")
-                                .foregroundColor(.gray)
-                        )
+                    ZStack {
+                        Color.rcSurfaceMuted
+                        Image(systemName: "photo")
+                            .foregroundColor(.rcTextMuted)
+                    }
                 }
                 .frame(width: 80, height: 80)
-                .cornerRadius(8)
+                .cornerRadius(RCRadius.md)
                 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: RCSpacing.xs) {
                     Text(item.title)
-                        .font(.headline)
-                        .foregroundColor(.primary)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.rcTextPrimary)
+                        .lineLimit(2)
                     
                     if let variant = item.variantTitle {
                         Text(variant)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .font(.caption)
+                            .foregroundColor(.rcTextSecondary)
                     }
                     
                     Text("$\(item.price.currencyString)")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(.rcPrimary)
                 }
                 
                 Spacer()
                 
                 // Selection indicator
-                Image(systemName: flowState.selectedItem?.id == item.id ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
-                    .foregroundColor(flowState.selectedItem?.id == item.id ? .blue : .gray)
+                ZStack {
+                    Circle()
+                        .stroke(flowState.selectedItem?.id == item.id ? Color.rcPrimary : Color.rcBorder, lineWidth: 2)
+                        .frame(width: 24, height: 24)
+                    
+                    if flowState.selectedItem?.id == item.id {
+                        Circle()
+                            .fill(Color.rcPrimary)
+                            .frame(width: 16, height: 16)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
             }
-            .padding()
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(flowState.selectedItem?.id == item.id ? Color.blue : Color.gray.opacity(0.3), lineWidth: 2)
-            )
-            .background(Color(.systemBackground))
-            .cornerRadius(12)
+            .rcCard(isSelected: flowState.selectedItem?.id == item.id)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -155,32 +188,50 @@ struct OrderConfirmationView: View {
         let daysRemaining = policy.daysRemaining(daysSincePurchase: order.daysSincePurchase)
         let isWithinWindow = policy.isWithinReturnWindow(daysSincePurchase: order.daysSincePurchase)
         
-        return HStack {
-            Image(systemName: isWithinWindow ? "clock.fill" : "exclamationmark.triangle.fill")
-                .foregroundColor(isWithinWindow ? .green : .red)
+        return HStack(spacing: RCSpacing.md) {
+            ZStack {
+                Circle()
+                    .fill(isWithinWindow ? Color.rcSuccess.opacity(0.15) : Color.rcError.opacity(0.15))
+                    .frame(width: 40, height: 40)
+                
+                Image(systemName: isWithinWindow ? "clock.fill" : "exclamationmark.triangle.fill")
+                    .foregroundColor(isWithinWindow ? .rcSuccess : .rcError)
+            }
             
-            VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(isWithinWindow ? "Return window open" : "Return window closed")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(isWithinWindow ? .rcSuccessDark : .rcError)
                 
                 Text(isWithinWindow ? "\(daysRemaining) days remaining" : "Outside \(policy.returnWindowDays)-day policy")
                     .font(.caption)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(.rcTextSecondary)
             }
             
             Spacer()
+            
+            if isWithinWindow {
+                Text("\(daysRemaining)d")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundColor(.rcSuccess)
+            }
         }
-        .padding()
-        .background(isWithinWindow ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
-        .cornerRadius(12)
+        .padding(RCSpacing.lg)
+        .background(isWithinWindow ? Color.rcSuccess.opacity(0.06) : Color.rcError.opacity(0.06))
+        .cornerRadius(RCRadius.lg)
+        .overlay(
+            RoundedRectangle(cornerRadius: RCRadius.lg)
+                .stroke(isWithinWindow ? Color.rcSuccess.opacity(0.2) : Color.rcError.opacity(0.2), lineWidth: 1)
+        )
     }
     
     private var loadingView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: RCSpacing.lg) {
             ProgressView()
+                .tint(.rcPrimary)
             Text("Loading order...")
-                .foregroundColor(.secondary)
+                .font(.subheadline)
+                .foregroundColor(.rcTextSecondary)
         }
         .padding(40)
     }

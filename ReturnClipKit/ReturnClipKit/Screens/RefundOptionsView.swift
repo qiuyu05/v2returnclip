@@ -6,9 +6,10 @@ struct RefundOptionsView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: RCSpacing.xl) {
                 // Header
                 headerSection
+                    .slideIn(delay: 0.1)
                 
                 // Refund options
                 if let decision = flowState.refundDecision {
@@ -16,159 +17,204 @@ struct RefundOptionsView: View {
                     
                     // Summary
                     summarySection(decision)
+                        .slideIn(delay: 0.4)
                 }
                 
                 Spacer(minLength: 100)
             }
-            .padding()
+            .padding(.horizontal, RCSpacing.lg)
+            .padding(.top, RCSpacing.sm)
         }
+        .background(Color.rcSurface)
     }
     
     // MARK: - Components
     
     private var headerSection: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "dollarsign.circle.fill")
-                .font(.system(size: 48))
-                .foregroundColor(.green)
+        VStack(spacing: RCSpacing.sm) {
+            ZStack {
+                Circle()
+                    .fill(Color.rcSuccess.opacity(0.1))
+                    .frame(width: 80, height: 80)
+                
+                Image(systemName: "dollarsign.circle.fill")
+                    .font(.system(size: 36))
+                    .foregroundStyle(LinearGradient.rcSuccess)
+            }
+            .bounceAppear(delay: 0.1)
             
             Text("Choose Your Refund")
-                .font(.title2)
-                .fontWeight(.bold)
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .foregroundColor(.rcTextPrimary)
             
             Text("Select the option that works best for you")
                 .font(.subheadline)
-                .foregroundColor(.secondary)
+                .foregroundColor(.rcTextSecondary)
         }
-        .padding(.top)
+        .padding(.top, RCSpacing.lg)
     }
     
     private func optionsSection(_ decision: RefundDecision) -> some View {
-        VStack(spacing: 12) {
-            ForEach(decision.alternativeOptions) { option in
+        VStack(spacing: RCSpacing.md) {
+            ForEach(Array(decision.alternativeOptions.enumerated()), id: \.element.id) { index, option in
                 optionCard(option)
+                    .slideIn(delay: 0.2 + Double(index) * 0.1)
             }
         }
     }
     
     private func optionCard(_ option: RefundOption) -> some View {
-        Button {
-            withAnimation(.spring(response: 0.3)) {
+        let isSelected = flowState.selectedRefundOption?.id == option.id
+        let hasBestValue = option.bonusAmount != nil && option.bonusAmount! > 0
+        
+        return Button {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                RCHaptics.selection()
                 flowState.selectedRefundOption = option
             }
         } label: {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
+            VStack(alignment: .leading, spacing: RCSpacing.md) {
+                HStack(spacing: RCSpacing.lg) {
                     // Icon
-                    Image(systemName: optionIcon(option.type))
-                        .font(.title2)
-                        .foregroundColor(flowState.selectedRefundOption?.id == option.id ? .white : .blue)
-                        .frame(width: 40)
+                    ZStack {
+                        Circle()
+                            .fill(isSelected ? Color.white.opacity(0.2) : Color.rcPrimary.opacity(0.1))
+                            .frame(width: 44, height: 44)
+                        
+                        Image(systemName: optionIcon(option.type))
+                            .font(.system(size: 18))
+                            .foregroundColor(isSelected ? .white : .rcPrimary)
+                    }
                     
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(optionTitle(option.type))
-                            .font(.headline)
-                            .foregroundColor(flowState.selectedRefundOption?.id == option.id ? .white : .primary)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(isSelected ? .white : .rcTextPrimary)
                         
                         Text(option.description)
-                            .font(.caption)
-                            .foregroundColor(flowState.selectedRefundOption?.id == option.id ? .white.opacity(0.8) : .secondary)
+                            .font(.system(size: 12))
+                            .foregroundColor(isSelected ? .white.opacity(0.7) : .rcTextSecondary)
+                            .lineLimit(2)
                     }
                     
                     Spacer()
                     
                     // Amount
-                    VStack(alignment: .trailing, spacing: 2) {
+                    VStack(alignment: .trailing, spacing: 3) {
                         Text("$\(option.amount.currencyString)")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundColor(flowState.selectedRefundOption?.id == option.id ? .white : .primary)
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .foregroundColor(isSelected ? .white : .rcTextPrimary)
                         
                         if let bonus = option.bonusAmount, bonus > 0 {
-                            Text("+$\(bonus.currencyString) bonus")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(.green)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.green.opacity(0.2))
-                                .cornerRadius(4)
+                            HStack(spacing: 3) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 9))
+                                Text("$\(bonus.currencyString)")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            .foregroundColor(isSelected ? .white : .rcSuccess)
+                            .padding(.horizontal, RCSpacing.sm)
+                            .padding(.vertical, 3)
+                            .background(
+                                isSelected
+                                ? Color.white.opacity(0.2)
+                                : Color.rcSuccess.opacity(0.1)
+                            )
+                            .cornerRadius(RCRadius.full)
                         }
                     }
                 }
                 
-                // Highlight for best value
-                if option.bonusAmount != nil && option.bonusAmount! > 0 {
-                    HStack {
+                // Best value badge
+                if hasBestValue {
+                    HStack(spacing: RCSpacing.xs) {
                         Image(systemName: "star.fill")
-                            .font(.caption)
-                        Text("Best Value")
-                            .font(.caption)
-                            .fontWeight(.medium)
+                            .font(.system(size: 10))
+                        Text("Best Value — Extra \(Int((option.bonusAmount ?? 0).doubleValue / option.amount.doubleValue * 100))% bonus")
+                            .font(.system(size: 11, weight: .semibold))
                     }
-                    .foregroundColor(flowState.selectedRefundOption?.id == option.id ? .white : .green)
+                    .foregroundColor(isSelected ? .white : .rcSuccess)
+                    .padding(.horizontal, RCSpacing.md)
+                    .padding(.vertical, RCSpacing.sm)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        isSelected
+                        ? Color.white.opacity(0.15)
+                        : Color.rcSuccess.opacity(0.06)
+                    )
+                    .cornerRadius(RCRadius.sm)
                 }
             }
-            .padding()
+            .padding(RCSpacing.lg)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(flowState.selectedRefundOption?.id == option.id ? Color.blue : Color(.systemGray6))
+                Group {
+                    if isSelected {
+                        LinearGradient.rcPrimary
+                    } else {
+                        LinearGradient(colors: [Color.rcSurfaceElevated], startPoint: .leading, endPoint: .trailing)
+                    }
+                }
             )
+            .cornerRadius(RCRadius.lg)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(flowState.selectedRefundOption?.id == option.id ? Color.blue : Color.clear, lineWidth: 2)
+                RoundedRectangle(cornerRadius: RCRadius.lg)
+                    .stroke(isSelected ? Color.clear : Color.rcBorder.opacity(0.6), lineWidth: 1)
             )
+            .rcShadowCard()
         }
         .buttonStyle(PlainButtonStyle())
     }
     
     private func summarySection(_ decision: RefundDecision) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: RCSpacing.md) {
             Text("Summary")
-                .font(.headline)
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundColor(.rcTextPrimary)
             
             HStack {
                 Text("Original Price")
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 14))
+                    .foregroundColor(.rcTextSecondary)
                 Spacer()
                 Text("$\(decision.originalAmount.currencyString)")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.rcTextPrimary)
             }
-            .font(.subheadline)
             
             if let fee = decision.restockingFee, fee > 0 {
                 HStack {
                     Text("Restocking Fee")
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 14))
+                        .foregroundColor(.rcTextSecondary)
                     Spacer()
                     Text("-$\(fee.currencyString)")
-                        .foregroundColor(.red)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.rcError)
                 }
-                .font(.subheadline)
             }
             
-            Divider()
+            Rectangle()
+                .fill(Color.rcBorder)
+                .frame(height: 1)
             
             if let selected = flowState.selectedRefundOption {
                 HStack {
-                    Text("Your Refund")
-                        .fontWeight(.semibold)
-                    Spacer()
-                    VStack(alignment: .trailing) {
-                        Text("$\((selected.amount + (selected.bonusAmount ?? 0)).currencyString)")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundColor(.green)
-                        
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Your Refund")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.rcTextPrimary)
                         Text(optionTitle(selected.type))
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            .font(.system(size: 12))
+                            .foregroundColor(.rcTextMuted)
                     }
+                    Spacer()
+                    Text("$\((selected.amount + (selected.bonusAmount ?? 0)).currencyString)")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundColor(.rcSuccess)
                 }
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .rcCard()
     }
     
     // MARK: - Helpers

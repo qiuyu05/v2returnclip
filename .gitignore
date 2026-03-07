@@ -3,7 +3,7 @@ ReturnClipKit/ReturnClipKit/Config/APIKeys.swift
 
 # Xcode
 *.xcuserdata
-*.xcworkspace
+xcuserdata/
 DerivedData/
 build/
 .build/

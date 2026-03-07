@@ -6,22 +6,26 @@ struct ConditionResultView: View {
     
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: RCSpacing.xl) {
                 // Header with score
                 if let assessment = flowState.conditionAssessment {
                     scoreHeader(assessment)
+                        .slideIn(delay: 0.1)
                     
                     // Category breakdown
                     categoryBreakdown(assessment)
+                        .slideIn(delay: 0.3)
                     
                     // Detected issues
                     if !assessment.issues.isEmpty {
                         issuesSection(assessment.issues)
+                            .slideIn(delay: 0.5)
                     }
                     
                     // Policy check result
                     if let decision = flowState.refundDecision {
                         policyCheckResult(decision)
+                            .slideIn(delay: 0.6)
                     }
                 } else {
                     analyzingView
@@ -29,125 +33,146 @@ struct ConditionResultView: View {
                 
                 Spacer(minLength: 100)
             }
-            .padding()
+            .padding(.horizontal, RCSpacing.lg)
+            .padding(.top, RCSpacing.sm)
         }
+        .background(Color.rcSurface)
     }
     
     // MARK: - Components
     
     private func scoreHeader(_ assessment: ConditionAssessment) -> some View {
-        VStack(spacing: 16) {
-            // Quality badge
-            ZStack {
-                Circle()
-                    .fill(qualityColor(assessment.qualityLevel).opacity(0.2))
-                    .frame(width: 140, height: 140)
-                
-                Circle()
-                    .stroke(qualityColor(assessment.qualityLevel), lineWidth: 8)
-                    .frame(width: 140, height: 140)
-                
-                VStack {
-                    Text("\(assessment.overallQualityScore)")
-                        .font(.system(size: 48, weight: .bold, design: .rounded))
-                    Text("/ 100")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
+        VStack(spacing: RCSpacing.lg) {
+            // Animated score ring
+            AnimatedScoreRing(
+                score: assessment.overallQualityScore,
+                color: qualityColor(assessment.qualityLevel),
+                size: 160
+            )
+            .padding(.top, RCSpacing.lg)
             
-            // Quality level label
-            HStack {
+            // Quality level badge
+            HStack(spacing: RCSpacing.sm) {
                 Text(assessment.qualityLevel.emoji)
+                    .font(.system(size: 20))
                 Text(assessment.qualityLevel.rawValue)
-                    .font(.title2)
-                    .fontWeight(.bold)
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundColor(.rcTextPrimary)
             }
             
-            // Confidence
-            Text("AI Confidence: \(Int(assessment.confidence * 100))%")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            // Confidence badge
+            HStack(spacing: RCSpacing.xs) {
+                Image(systemName: "cpu")
+                    .font(.system(size: 11))
+                Text("AI Confidence: \(Int(assessment.confidence * 100))%")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .foregroundColor(.rcTextMuted)
+            .padding(.horizontal, RCSpacing.md)
+            .padding(.vertical, RCSpacing.sm)
+            .background(Color.rcSurfaceMuted)
+            .cornerRadius(RCRadius.full)
         }
-        .padding(.top)
     }
     
     private func categoryBreakdown(_ assessment: ConditionAssessment) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: RCSpacing.lg) {
             Text("Condition Breakdown")
-                .font(.headline)
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundColor(.rcTextPrimary)
             
-            ForEach(assessment.categoryScores, id: \.category) { score in
-                categoryRow(score)
+            ForEach(Array(assessment.categoryScores.enumerated()), id: \.element.category) { index, score in
+                categoryRow(score, delay: Double(index) * 0.1)
             }
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .rcCard()
     }
     
-    private func categoryRow(_ score: CategoryScore) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private func categoryRow(_ score: CategoryScore, delay: Double = 0) -> some View {
+        VStack(alignment: .leading, spacing: RCSpacing.sm) {
             HStack {
-                Image(systemName: score.category.icon)
-                    .foregroundColor(.blue)
-                    .frame(width: 24)
+                ZStack {
+                    Circle()
+                        .fill(scoreColor(score.score).opacity(0.12))
+                        .frame(width: 30, height: 30)
+                    
+                    Image(systemName: score.category.icon)
+                        .foregroundColor(scoreColor(score.score))
+                        .font(.system(size: 13))
+                }
                 
                 Text(score.category.displayName)
-                    .font(.subheadline)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.rcTextPrimary)
                 
                 Spacer()
                 
                 Text("\(score.score)%")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundColor(scoreColor(score.score))
             }
             
             // Progress bar
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.2))
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.rcSurfaceMuted)
                         .frame(height: 6)
-                        .cornerRadius(3)
                     
-                    Rectangle()
-                        .fill(scoreColor(score.score))
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(
+                            LinearGradient(
+                                colors: [scoreColor(score.score).opacity(0.7), scoreColor(score.score)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
                         .frame(width: geo.size.width * CGFloat(score.score) / 100, height: 6)
-                        .cornerRadius(3)
                 }
             }
             .frame(height: 6)
             
             if let notes = score.notes {
                 Text(notes)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 12))
+                    .foregroundColor(.rcTextMuted)
             }
         }
     }
     
     private func issuesSection(_ issues: [DetectedIssue]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
+        VStack(alignment: .leading, spacing: RCSpacing.md) {
+            HStack(spacing: RCSpacing.sm) {
+                ZStack {
+                    Circle()
+                        .fill(Color.rcWarning.opacity(0.12))
+                        .frame(width: 30, height: 30)
+                    
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.rcWarning)
+                        .font(.system(size: 13))
+                }
+                
                 Text("Issues Detected")
-                    .font(.headline)
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundColor(.rcTextPrimary)
             }
             
             ForEach(issues) { issue in
                 issueRow(issue)
             }
         }
-        .padding()
-        .background(Color.orange.opacity(0.1))
-        .cornerRadius(12)
+        .padding(RCSpacing.lg)
+        .background(Color.rcWarning.opacity(0.05))
+        .cornerRadius(RCRadius.lg)
+        .overlay(
+            RoundedRectangle(cornerRadius: RCRadius.lg)
+                .stroke(Color.rcWarning.opacity(0.15), lineWidth: 1)
+        )
     }
     
     private func issueRow(_ issue: DetectedIssue) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: RCSpacing.md) {
             Circle()
                 .fill(severityColor(issue.severity))
                 .frame(width: 8, height: 8)
@@ -155,100 +180,137 @@ struct ConditionResultView: View {
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(issue.description)
-                    .font(.subheadline)
+                    .font(.system(size: 14))
+                    .foregroundColor(.rcTextPrimary)
                 
                 if let location = issue.location {
                     Text("Location: \(location)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 12))
+                        .foregroundColor(.rcTextMuted)
                 }
             }
             
             Spacer()
             
             Text(issue.severity.rawValue.capitalized)
-                .font(.caption)
-                .fontWeight(.medium)
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(severityColor(issue.severity))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .padding(.horizontal, RCSpacing.sm)
+                .padding(.vertical, RCSpacing.xs)
                 .background(severityColor(issue.severity).opacity(0.1))
-                .cornerRadius(4)
+                .cornerRadius(RCRadius.full)
         }
     }
     
     private func policyCheckResult(_ decision: RefundDecision) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: policyIcon(decision.decision))
-                    .foregroundColor(policyColor(decision.decision))
+        VStack(alignment: .leading, spacing: RCSpacing.md) {
+            HStack(spacing: RCSpacing.sm) {
+                ZStack {
+                    Circle()
+                        .fill(policyColor(decision.decision).opacity(0.12))
+                        .frame(width: 30, height: 30)
+                    
+                    Image(systemName: policyIcon(decision.decision))
+                        .foregroundColor(policyColor(decision.decision))
+                        .font(.system(size: 13))
+                }
+                
                 Text("Policy Check")
-                    .font(.headline)
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundColor(.rcTextPrimary)
+                
+                Spacer()
+                
+                // Status badge
+                Text(policyStatusText(decision.decision))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, RCSpacing.sm)
+                    .padding(.vertical, RCSpacing.xs)
+                    .background(policyColor(decision.decision))
+                    .cornerRadius(RCRadius.full)
             }
             
             Text(decision.explanation)
-                .font(.subheadline)
+                .font(.system(size: 14))
+                .foregroundColor(.rcTextSecondary)
+                .lineSpacing(3)
             
             if !decision.policyViolations.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: RCSpacing.xs) {
                     ForEach(decision.policyViolations, id: \.self) { violation in
-                        HStack(alignment: .top) {
+                        HStack(alignment: .top, spacing: RCSpacing.sm) {
                             Text("•")
+                                .foregroundColor(.rcTextMuted)
                             Text(violation)
-                                .font(.caption)
+                                .font(.system(size: 12))
+                                .foregroundColor(.rcTextMuted)
                         }
-                        .foregroundColor(.secondary)
                     }
                 }
             }
         }
-        .padding()
-        .background(policyColor(decision.decision).opacity(0.1))
-        .cornerRadius(12)
+        .padding(RCSpacing.lg)
+        .background(policyColor(decision.decision).opacity(0.05))
+        .cornerRadius(RCRadius.lg)
+        .overlay(
+            RoundedRectangle(cornerRadius: RCRadius.lg)
+                .stroke(policyColor(decision.decision).opacity(0.15), lineWidth: 1)
+        )
     }
     
     private var analyzingView: some View {
-        VStack(spacing: 24) {
-            ProgressView()
-                .scaleEffect(1.5)
+        VStack(spacing: RCSpacing.xl) {
+            ZStack {
+                Circle()
+                    .fill(Color.rcPrimary.opacity(0.08))
+                    .frame(width: 100, height: 100)
+                
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .tint(.rcPrimary)
+            }
             
-            Text("Analyzing condition...")
-                .font(.headline)
-            
-            Text("Our AI is reviewing your photos")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            VStack(spacing: RCSpacing.sm) {
+                Text("Analyzing condition...")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundColor(.rcTextPrimary)
+                
+                Text("Our AI is reviewing your photos")
+                    .font(.subheadline)
+                    .foregroundColor(.rcTextSecondary)
+            }
         }
-        .padding(40)
+        .padding(RCSpacing.xxxl)
     }
     
     // MARK: - Helpers
     
     private func qualityColor(_ level: QualityLevel) -> Color {
         switch level {
-        case .excellent: return .green
-        case .good: return .blue
-        case .fair: return .yellow
-        case .poor: return .orange
-        case .unacceptable: return .red
+        case .excellent: return .rcSuccess
+        case .good: return .rcPrimary
+        case .fair: return .rcWarning
+        case .poor: return .rcWarning
+        case .unacceptable: return .rcError
         }
     }
     
     private func scoreColor(_ score: Int) -> Color {
         switch score {
-        case 90...100: return .green
-        case 70..<90: return .blue
-        case 50..<70: return .yellow
-        default: return .red
+        case 90...100: return .rcSuccess
+        case 70..<90: return .rcPrimary
+        case 50..<70: return .rcWarning
+        default: return .rcError
         }
     }
     
     private func severityColor(_ severity: IssueSeverity) -> Color {
         switch severity {
-        case .minor: return .green
-        case .moderate: return .yellow
-        case .major: return .orange
-        case .critical: return .red
+        case .minor: return .rcSuccess
+        case .moderate: return .rcWarning
+        case .major: return .rcWarning
+        case .critical: return .rcError
         }
     }
     
@@ -264,11 +326,21 @@ struct ConditionResultView: View {
     
     private func policyColor(_ decision: RefundType) -> Color {
         switch decision {
-        case .fullRefund: return .green
-        case .partialRefund: return .yellow
-        case .exchangeOnly: return .blue
-        case .storeCreditOnly: return .purple
-        case .denied: return .red
+        case .fullRefund: return .rcSuccess
+        case .partialRefund: return .rcWarning
+        case .exchangeOnly: return .rcPrimary
+        case .storeCreditOnly: return .rcPrimaryLight
+        case .denied: return .rcError
+        }
+    }
+    
+    private func policyStatusText(_ decision: RefundType) -> String {
+        switch decision {
+        case .fullRefund: return "Approved"
+        case .partialRefund: return "Partial"
+        case .exchangeOnly: return "Exchange"
+        case .storeCreditOnly: return "Credit"
+        case .denied: return "Denied"
         }
     }
 }
