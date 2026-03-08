@@ -82,7 +82,9 @@ struct ReturnClipExperience: View {
         case .returnReason:
             ReturnReasonView(flowState: flowState)
         case .photoCapture:
-            PhotoCaptureView(flowState: flowState)
+            PhotoCaptureView(flowState: flowState, onDemoSelected: {
+                handleContinue()
+            })
         case .conditionResult:
             ConditionResultView(flowState: flowState)
         case .refundOptions:

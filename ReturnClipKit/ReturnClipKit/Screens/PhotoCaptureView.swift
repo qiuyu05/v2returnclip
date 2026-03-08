@@ -5,11 +5,13 @@ import AVKit
 /// Screen 3: Capture photos/video of item condition
 struct PhotoCaptureView: View {
     @ObservedObject var flowState: ReturnFlowState
+    var onDemoSelected: (() -> Void)? = nil  // called after demo image loads to auto-advance
+
     @State private var showingImagePicker = false
     @State private var showingCamera = false
     @State private var selectedPhotos: [PhotosPickerItem] = []
     @State private var showDemoVideo = false
-    
+
     private let requiredPhotoCount = 3
 
     // Demo sofa images — loaded for convenience; score is hardcoded by demoScoreOverride
@@ -24,9 +26,9 @@ struct PhotoCaptureView: View {
                 headerSection
                     .slideIn(delay: 0.1)
                 
-                // Demo video button
-                if flowState.policy?.demoVideoUrl != nil {
-                    demoVideoButton
+                // Packaging video button — item-specific, falls back to store-level
+                if flowState.selectedItem?.packagingVideoUrl != nil || flowState.policy?.demoVideoUrl != nil {
+                    packagingVideoButton
                         .slideIn(delay: 0.15)
                 }
                 
@@ -109,7 +111,7 @@ struct PhotoCaptureView: View {
         .padding(.top, RCSpacing.lg)
     }
     
-    private var demoVideoButton: some View {
+    private var packagingVideoButton: some View {
         Button {
             showDemoVideo = true
         } label: {
@@ -118,23 +120,23 @@ struct PhotoCaptureView: View {
                     Circle()
                         .fill(Color.rcPrimary.opacity(0.1))
                         .frame(width: 36, height: 36)
-                    
-                    Image(systemName: "play.circle.fill")
-                        .font(.system(size: 20))
+
+                    Image(systemName: "box.truck.fill")
+                        .font(.system(size: 18))
                         .foregroundColor(.rcPrimary)
                 }
-                
+
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("How to photograph your item")
+                    Text("How to package \(flowState.selectedItem?.title ?? "your item")")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.rcTextPrimary)
-                    Text("Watch a 15-second guide")
+                    Text("Watch the packaging guide before shipping")
                         .font(.caption)
                         .foregroundColor(.rcTextSecondary)
                 }
-                
+
                 Spacer()
-                
+
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.rcTextMuted)
@@ -149,7 +151,10 @@ struct PhotoCaptureView: View {
             .rcShadowCard()
         }
         .sheet(isPresented: $showDemoVideo) {
-            DemoVideoView(videoUrl: flowState.policy?.demoVideoUrl)
+            PackagingVideoView(
+                videoUrl: flowState.selectedItem?.packagingVideoUrl ?? flowState.policy?.demoVideoUrl,
+                itemTitle: flowState.selectedItem?.title ?? "Your Item"
+            )
         }
     }
     
@@ -204,14 +209,15 @@ struct PhotoCaptureView: View {
             }
             .buttonStyle(RCSecondaryButtonStyle())
 
-            // Demo quick-fill buttons — pre-loads a sofa image so you skip the photo library
+            // Demo image tiles — tap to select and auto-advance
             if flowState.capturedPhotos.isEmpty {
-                HStack(spacing: RCSpacing.sm) {
-                    demoButton(label: "Demo Photo 1", icon: "photo.fill", color: .rcPrimary, key: "1") {
-                        Task { await loadDemo(url: sofaUrl1, score: 15, key: "1") }
-                    }
-                    demoButton(label: "Demo Photo 2", icon: "photo.fill", color: .rcPrimary, key: "2") {
-                        Task { await loadDemo(url: sofaUrl2, score: 95, key: "2") }
+                VStack(alignment: .leading, spacing: RCSpacing.sm) {
+                    Text("Or pick a demo photo")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.rcTextMuted)
+                    HStack(spacing: RCSpacing.sm) {
+                        demoImageTile(url: sofaUrl1, score: 15, key: "1")
+                        demoImageTile(url: sofaUrl2, score: 95, key: "2")
                     }
                 }
             }
@@ -268,24 +274,37 @@ struct PhotoCaptureView: View {
     }
 
     @ViewBuilder
-    private func demoButton(label: String, icon: String, color: Color, key: String, action: @escaping () -> Void) -> some View {
-        Button(action: { RCHaptics.selection(); action() }) {
-            VStack(spacing: 6) {
-                if loadingDemo == key {
-                    ProgressView().scaleEffect(0.8).tint(color)
-                } else {
-                    Image(systemName: icon).font(.system(size: 16)).foregroundColor(color)
+    private func demoImageTile(url: String, score: Int, key: String) -> some View {
+        Button {
+            RCHaptics.impact(.medium)
+            Task { await loadDemo(url: url, score: score, key: key) }
+        } label: {
+            ZStack {
+                AsyncImage(url: URL(string: url)) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    case .failure:
+                        Color.rcSurfaceMuted
+                    default:
+                        Color.rcSurfaceMuted.overlay(ProgressView().scaleEffect(0.7))
+                    }
                 }
-                Text(loadingDemo == key ? "Loading..." : label)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.rcTextSecondary)
-                    .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .frame(height: 110)
+                .clipped()
+                .cornerRadius(RCRadius.lg)
+
+                if loadingDemo == key {
+                    RoundedRectangle(cornerRadius: RCRadius.lg)
+                        .fill(Color.black.opacity(0.4))
+                    ProgressView().tint(.white)
+                }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, RCSpacing.md)
-            .background(Color.rcSurfaceElevated)
-            .cornerRadius(RCRadius.lg)
-            .overlay(RoundedRectangle(cornerRadius: RCRadius.lg).stroke(Color.rcBorder.opacity(0.6), lineWidth: 1))
+            .overlay(
+                RoundedRectangle(cornerRadius: RCRadius.lg)
+                    .stroke(Color.rcBorder.opacity(0.5), lineWidth: 1)
+            )
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(loadingDemo != nil)
@@ -302,6 +321,7 @@ struct PhotoCaptureView: View {
             flowState.capturedPhotos = [data]
             flowState.demoScoreOverride = score
             loadingDemo = nil
+            onDemoSelected?()
         }
     }
 }
@@ -361,13 +381,12 @@ struct PhotoPreviewCell: View {
     }
 }
 
-struct DemoVideoView: View {
+struct PackagingVideoView: View {
     @Environment(\.dismiss) var dismiss
     var videoUrl: String?
+    var itemTitle: String
 
-    // Cloudinary demo video with adaptive quality + format transforms
-    // In production this is set from ReturnPolicy.demoVideoUrl (uploaded by merchant via web dashboard)
-    private var cloudinaryVideoUrl: URL? {
+    private var resolvedVideoUrl: URL? {
         let urlString = videoUrl ?? "https://res.cloudinary.com/demo/video/upload/q_auto,f_auto/docs/cld-sample-video.mp4"
         return URL(string: urlString)
     }
@@ -377,7 +396,7 @@ struct DemoVideoView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                if let url = cloudinaryVideoUrl {
+                if let url = resolvedVideoUrl {
                     VideoPlayer(player: playerHolder.player)
                         .aspectRatio(16/9, contentMode: .fit)
                         .cornerRadius(RCRadius.lg)
@@ -395,14 +414,14 @@ struct DemoVideoView: View {
                 }
 
                 VStack(alignment: .leading, spacing: RCSpacing.md) {
-                    Text("Photo Tips")
+                    Text("Packaging Tips")
                         .font(.system(size: 17, weight: .semibold, design: .rounded))
                         .foregroundColor(.rcTextPrimary)
 
-                    GuidelineRow(icon: "sun.max.fill", text: "Use natural light — avoid flash", color: .rcWarning)
-                    GuidelineRow(icon: "arrow.up.left.and.arrow.down.right", text: "Include the entire item in frame", color: .rcPrimary)
-                    GuidelineRow(icon: "magnifyingglass", text: "Close-up on any damage or defects", color: .rcError)
-                    GuidelineRow(icon: "checkmark.circle.fill", text: "All 3 photos needed to continue", color: .rcSuccess)
+                    GuidelineRow(icon: "box.fill", text: "Use the original packaging if available", color: .rcPrimary)
+                    GuidelineRow(icon: "sparkles", text: "Wrap fragile parts individually", color: .rcWarning)
+                    GuidelineRow(icon: "seal.fill", text: "Seal the box securely on all sides", color: .rcPrimary)
+                    GuidelineRow(icon: "checkmark.circle.fill", text: "Attach the return label to the outside", color: .rcSuccess)
                 }
                 .rcCard()
                 .padding(.horizontal, RCSpacing.lg)
@@ -420,7 +439,7 @@ struct DemoVideoView: View {
                 Spacer()
             }
             .background(Color.rcSurface)
-            .navigationTitle("How to Photograph")
+            .navigationTitle("Package \(itemTitle)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -441,7 +460,7 @@ struct DemoVideoView: View {
                 Image(systemName: "video.slash.fill")
                     .font(.system(size: 40))
                     .foregroundColor(.white.opacity(0.5))
-                Text("No demo video configured")
+                Text("No packaging video configured")
                     .font(.subheadline)
                     .foregroundColor(.white.opacity(0.7))
             }

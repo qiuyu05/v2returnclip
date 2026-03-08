@@ -54,7 +54,8 @@ class ReturnFlowState: ObservableObject {
         case .photoCapture:
             return !capturedPhotos.isEmpty || capturedVideo != nil
         case .conditionResult:
-            return conditionAssessment != nil
+            guard let assessment = conditionAssessment else { return false }
+            return assessment.qualityLevel != .unacceptable
         case .refundOptions:
             if selectedRefundOption?.type == .exchange {
                 return selectedExchangeProduct != nil && selectedExchangeVariant != nil

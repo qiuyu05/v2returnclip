@@ -23,6 +23,7 @@ export interface LineItem {
   quantity: number;
   price: number;
   imageUrl?: string;
+  packagingVideoUrl?: string;  // per-item packaging tutorial video set by merchant
 }
 
 export interface PaymentMethod {

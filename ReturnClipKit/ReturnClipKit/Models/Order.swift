@@ -34,6 +34,7 @@ struct LineItem: Codable, Identifiable {
     let quantity: Int
     let price: Decimal
     let imageUrl: String?
+    let packagingVideoUrl: String?  // per-item packaging tutorial, set by merchant
     
     var displayTitle: String {
         if let variant = variantTitle, !variant.isEmpty {

@@ -27,6 +27,12 @@ struct ConditionResultView: View {
                         policyCheckResult(decision)
                             .slideIn(delay: 0.6)
                     }
+
+                    // Not approved banner — blocks proceed
+                    if assessment.qualityLevel == .unacceptable {
+                        notApprovedBanner
+                            .slideIn(delay: 0.7)
+                    }
                 } else {
                     analyzingView
                 }
@@ -203,35 +209,41 @@ struct ConditionResultView: View {
     }
     
     private func policyCheckResult(_ decision: RefundDecision) -> some View {
-        VStack(alignment: .leading, spacing: RCSpacing.md) {
+        let isUnacceptable = flowState.conditionAssessment?.qualityLevel == .unacceptable
+        let effectiveDecision: RefundType = isUnacceptable ? .denied : decision.decision
+        let effectiveExplanation = isUnacceptable
+            ? "Item condition is unacceptable. This return does not meet our policy requirements and cannot be approved."
+            : decision.explanation
+
+        return VStack(alignment: .leading, spacing: RCSpacing.md) {
             HStack(spacing: RCSpacing.sm) {
                 ZStack {
                     Circle()
-                        .fill(policyColor(decision.decision).opacity(0.12))
+                        .fill(policyColor(effectiveDecision).opacity(0.12))
                         .frame(width: 30, height: 30)
-                    
-                    Image(systemName: policyIcon(decision.decision))
-                        .foregroundColor(policyColor(decision.decision))
+
+                    Image(systemName: policyIcon(effectiveDecision))
+                        .foregroundColor(policyColor(effectiveDecision))
                         .font(.system(size: 13))
                 }
-                
+
                 Text("Policy Check")
                     .font(.system(size: 17, weight: .semibold, design: .rounded))
                     .foregroundColor(.rcTextPrimary)
-                
+
                 Spacer()
-                
+
                 // Status badge
-                Text(policyStatusText(decision.decision))
+                Text(policyStatusText(effectiveDecision))
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.white)
                     .padding(.horizontal, RCSpacing.sm)
                     .padding(.vertical, RCSpacing.xs)
-                    .background(policyColor(decision.decision))
+                    .background(policyColor(effectiveDecision))
                     .cornerRadius(RCRadius.full)
             }
-            
-            Text(decision.explanation)
+
+            Text(effectiveExplanation)
                 .font(.system(size: 14))
                 .foregroundColor(.rcTextSecondary)
                 .lineSpacing(3)
@@ -251,14 +263,45 @@ struct ConditionResultView: View {
             }
         }
         .padding(RCSpacing.lg)
-        .background(policyColor(decision.decision).opacity(0.05))
+        .background(policyColor(effectiveDecision).opacity(0.05))
         .cornerRadius(RCRadius.lg)
         .overlay(
             RoundedRectangle(cornerRadius: RCRadius.lg)
-                .stroke(policyColor(decision.decision).opacity(0.15), lineWidth: 1)
+                .stroke(policyColor(effectiveDecision).opacity(0.15), lineWidth: 1)
         )
     }
-    
+
+    private var notApprovedBanner: some View {
+        VStack(spacing: RCSpacing.md) {
+            HStack(spacing: RCSpacing.sm) {
+                Image(systemName: "xmark.seal.fill")
+                    .font(.system(size: 24))
+                    .foregroundColor(.rcError)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Return Not Approved")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundColor(.rcError)
+                    Text("Item condition does not meet our return policy")
+                        .font(.system(size: 13))
+                        .foregroundColor(.rcTextSecondary)
+                }
+                Spacer()
+            }
+            Divider()
+            Text("Items must be in at least Poor or better condition to be eligible for return. This item has been assessed as Unacceptable and cannot be processed.")
+                .font(.system(size: 13))
+                .foregroundColor(.rcTextSecondary)
+                .lineSpacing(3)
+        }
+        .padding(RCSpacing.lg)
+        .background(Color.rcError.opacity(0.05))
+        .cornerRadius(RCRadius.lg)
+        .overlay(
+            RoundedRectangle(cornerRadius: RCRadius.lg)
+                .stroke(Color.rcError.opacity(0.2), lineWidth: 1)
+        )
+    }
+
     private var analyzingView: some View {
         VStack(spacing: RCSpacing.xl) {
             ZStack {
