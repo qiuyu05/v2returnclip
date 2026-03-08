@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import ReturnMediaViewer from './components/ReturnMediaViewer.tsx';
-import VideoDemo from './components/VideoDemo.tsx';
+import MerchantVideoUpload from './components/MerchantVideoUpload.tsx';
 import UploadWidget from './components/UploadWidget.tsx';
-import type { TabId, Stat } from './types/index.ts';
+import type { Stat } from './types/index.ts';
 
 const BACKEND_URL: string = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:3001';
 
@@ -13,8 +13,10 @@ const STATS: Stat[] = [
   { value: '$12.4K', label: 'Revenue Saved', change: '+$1.2K this week', positive: true },
 ];
 
+type TabId = 'cases' | 'video' | 'upload';
+
 const TABS: { id: TabId; label: string }[] = [
-  { id: 'overview', label: 'Return Photos' },
+  { id: 'cases', label: 'Return Cases' },
   { id: 'video', label: 'Demo Video' },
   { id: 'upload', label: 'Upload Media' },
 ];
@@ -23,7 +25,7 @@ const TECH_BADGES = ['Cloudinary', 'Gemini AI', 'Shopify', 'SwiftUI'];
 
 export default function App() {
   const [backendOk, setBackendOk] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [activeTab, setActiveTab] = useState<TabId>('cases');
 
   useEffect(() => {
     fetch(`${BACKEND_URL}/api/health`)
@@ -69,7 +71,7 @@ export default function App() {
         </div>
       </nav>
 
-      <main style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 24px' }}>
+      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px' }}>
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 32 }}>
           {STATS.map((s) => (
@@ -109,12 +111,8 @@ export default function App() {
         </div>
 
         {/* Tab content */}
-        {activeTab === 'overview' && <ReturnMediaViewer />}
-        {activeTab === 'video' && (
-          <div style={{ maxWidth: 680 }}>
-            <VideoDemo />
-          </div>
-        )}
+        {activeTab === 'cases' && <ReturnMediaViewer />}
+        {activeTab === 'video' && <MerchantVideoUpload />}
         {activeTab === 'upload' && (
           <div style={{ maxWidth: 600 }}>
             <UploadWidget />
@@ -129,9 +127,9 @@ export default function App() {
           <div style={{ fontSize: 15, fontWeight: 700, color: '#1d1d1f', marginBottom: 10 }}>Architecture</div>
           <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.8 }}>
             <strong>App Clip (iOS):</strong> Customer scans QR → Swift app uploads photos to Cloudinary → backend analyzes with Gemini Vision → refund decision shown in seconds<br />
-            <strong>Cloudinary role:</strong> CDN for all return photos, AdvancedImage SDK transforms, demo video adaptive streaming, Upload Widget for merchants<br />
-            <strong>Backend ({BACKEND_URL}):</strong> Calls Gemini Vision with Cloudinary images, calls Shopify Storefront API for exchange products<br />
-            <strong>Shopify:</strong> Order verification, product catalog for exchange, Admin API for issuing refunds
+            <strong>Cloudinary role:</strong> CDN for all return photos + demo video, AdvancedImage/AdvancedVideo SDK, Upload Widget for merchants<br />
+            <strong>Backend ({BACKEND_URL}):</strong> Calls Gemini Vision with Cloudinary images, Shopify Storefront API for exchange products, Supabase for persistent case data<br />
+            <strong>Supabase:</strong> Stores return cases, evidence URLs, execution records, merchant demo video URL — shared source of truth for iOS and web
           </div>
         </div>
       </main>

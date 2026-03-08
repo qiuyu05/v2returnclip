@@ -128,11 +128,23 @@ class BackendService {
     // MARK: - Return Case: Execute
 
     /// Executes the selected refund option. Idempotent — safe to retry.
-    func executeReturn(caseId: String, selectedOptionId: String) async throws -> ExecuteResponse {
+    func executeReturn(
+        caseId: String,
+        selectedOptionId: String,
+        exchangeProductTitle: String? = nil,
+        exchangeVariantTitle: String? = nil,
+        exchangePrice: Double? = nil
+    ) async throws -> ExecuteResponse {
         guard let url = URL(string: "\(baseUrl)/api/returns/\(caseId)/execute") else {
             throw BackendError.invalidUrl
         }
-        let body = ExecuteRequest(selectedOptionId: selectedOptionId, idempotencyKey: UUID().uuidString)
+        let body = ExecuteRequest(
+            selectedOptionId: selectedOptionId,
+            idempotencyKey: UUID().uuidString,
+            exchangeProductTitle: exchangeProductTitle,
+            exchangeVariantTitle: exchangeVariantTitle,
+            exchangePrice: exchangePrice
+        )
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -208,6 +220,9 @@ struct EvidenceRequest: Codable {
 struct ExecuteRequest: Codable {
     let selectedOptionId: String
     let idempotencyKey: String
+    let exchangeProductTitle: String?
+    let exchangeVariantTitle: String?
+    let exchangePrice: Double?
 }
 
 struct EmptyBody: Codable {}

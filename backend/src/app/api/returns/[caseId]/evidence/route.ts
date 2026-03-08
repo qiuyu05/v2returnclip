@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getCase, addEvidence } from '@/lib/db';
 import { ApiError, ErrorCodes, handleRouteError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { saveEvidenceToSupabase } from '@/lib/supabase';
 
 const schema = z.object({
     imageUrls: z.array(z.string().url()).min(1),
@@ -30,6 +31,10 @@ export async function POST(
 
         addEvidence(caseId, parsed.data.imageUrls);
         logger.info('Evidence submitted', { caseId, count: parsed.data.imageUrls.length });
+
+        // Persist evidence to Supabase (non-blocking)
+        saveEvidenceToSupabase(caseId, parsed.data.imageUrls)
+            .catch(err => logger.error('Supabase evidence save failed', { error: String(err) }));
 
         return Response.json({ success: true, count: parsed.data.imageUrls.length });
     } catch (err) {

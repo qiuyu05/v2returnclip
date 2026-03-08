@@ -4,7 +4,7 @@
 import { logger } from './logger';
 import type { Order, ReturnPolicy } from '@/types';
 import { getMockPolicy } from './db';
-import { lookupOrderFromSupabase } from './supabase';
+import { lookupOrderFromSupabase, getDemoVideoUrl } from './supabase';
 
 const STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || '';
 const ADMIN_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN || '';
@@ -23,6 +23,10 @@ export async function lookupOrder(
     email: string
 ): Promise<{ order: Order; policy: ReturnPolicy; eligible: boolean } | null> {
     const policy = getMockPolicy();
+
+    // Inject demo video URL from Supabase merchants table
+    const demoVideoUrl = await getDemoVideoUrl();
+    if (demoVideoUrl) (policy as Record<string, unknown>).demoVideoUrl = demoVideoUrl;
 
     // 1. Check Supabase first — orders seeded here are the source of truth
     const supabaseOrder = await lookupOrderFromSupabase(orderNumber);

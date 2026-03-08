@@ -214,9 +214,35 @@ struct ReturnClipExperience: View {
     private func loadOrderData() {
         Task {
             do {
+                // Load the primary order
                 let resp = try await BackendService.shared.lookupOrder(orderNumber: orderId)
+                var loadedOrders = [resp.order]
+
+                // Also load the other demo order so both items appear in the list
+                let otherOrderId = orderId == "12345" ? "99999" : "12345"
+                if let otherResp = try? await BackendService.shared.lookupOrder(orderNumber: otherOrderId) {
+                    loadedOrders.append(otherResp.order)
+                }
+
+                // Merge all line items into the primary order for display
+                let allItems = loadedOrders.flatMap { $0.lineItems }
+                var mergedOrder = resp.order
+                mergedOrder = Order(
+                    id: resp.order.id,
+                    orderNumber: resp.order.orderNumber,
+                    purchaseDate: resp.order.purchaseDate,
+                    purchaseLocation: resp.order.purchaseLocation,
+                    customerEmail: resp.order.customerEmail,
+                    customerName: resp.order.customerName,
+                    lineItems: allItems,
+                    totalPrice: resp.order.totalPrice,
+                    currency: resp.order.currency,
+                    paymentMethod: resp.order.paymentMethod
+                )
+
                 await MainActor.run {
-                    flowState.order = resp.order
+                    flowState.orders = loadedOrders
+                    flowState.order = mergedOrder
                     flowState.policy = resp.policy
                 }
             } catch {
@@ -246,11 +272,16 @@ struct ReturnClipExperience: View {
 
         Task {
             do {
-                guard let order = flowState.order,
-                      let item = flowState.selectedItem,
+                guard let item = flowState.selectedItem,
                       let reason = flowState.returnReason else {
                     throw ReturnClipError.missingData
                 }
+
+                // Find the source order that contains the selected item
+                let order = flowState.orders.first { o in
+                    o.lineItems.contains { $0.id == item.id }
+                } ?? flowState.order!
+
 
                 // 1. Upload all photos to Cloudinary CDN
                 var uploadedUrls: [String] = []
@@ -306,9 +337,14 @@ struct ReturnClipExperience: View {
         Task {
             do {
                 let caseId = flowState.currentCaseId ?? "demo_\(UUID().uuidString.prefix(8))"
+                let exchProduct = flowState.selectedExchangeProduct
+                let exchVariant = flowState.selectedExchangeVariant
                 let resp = try await BackendService.shared.executeReturn(
                     caseId: caseId,
-                    selectedOptionId: option.id
+                    selectedOptionId: option.id,
+                    exchangeProductTitle: option.type == .exchange ? exchProduct?.title : nil,
+                    exchangeVariantTitle: option.type == .exchange ? exchVariant?.title : nil,
+                    exchangePrice: option.type == .exchange ? exchVariant?.price : nil
                 )
 
                 await MainActor.run {

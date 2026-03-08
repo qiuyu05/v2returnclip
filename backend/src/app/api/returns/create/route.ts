@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { createCase } from '@/lib/db';
 import { handleRouteError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { saveReturnCaseToSupabase } from '@/lib/supabase';
 
 const schema = z.object({
     orderId: z.string().min(1),
@@ -23,6 +24,15 @@ export async function POST(request: Request) {
 
         const returnCase = createCase(parsed.data);
         logger.info('Return case created', { caseId: returnCase.id, orderId: parsed.data.orderId });
+
+        // Persist to Supabase (non-blocking)
+        saveReturnCaseToSupabase(
+            returnCase.id,
+            parsed.data.orderId,
+            parsed.data.itemId,
+            parsed.data.reason,
+            parsed.data.notes,
+        ).catch(err => logger.error('Supabase case save failed', { error: String(err) }));
 
         return Response.json({
             caseId: returnCase.id,
