@@ -93,37 +93,60 @@ struct ExchangeProductsView: View {
     }
 
     private var productList: some View {
-        ScrollView {
-            LazyVStack(spacing: RCSpacing.md) {
-                if let selected = selectedProduct {
-                    variantPicker(for: selected)
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                }
-
-                ForEach(eligibleProducts) { product in
-                    ProductCard(
-                        product: product,
-                        isSelected: selectedProduct?.id == product.id,
-                        onTap: {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                RCHaptics.selection()
-                                if selectedProduct?.id == product.id {
-                                    selectedProduct = nil
-                                    selectedVariant = nil
-                                } else {
-                                    selectedProduct = product
-                                    selectedVariant = product.variants.first(where: { $0.availableForSale && $0.price <= returnItemPrice })
-                                }
-                            }
+        Group {
+            if eligibleProducts.isEmpty {
+                emptyStateView
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: RCSpacing.md) {
+                        if let selected = selectedProduct {
+                            variantPicker(for: selected)
+                                .transition(.move(edge: .top).combined(with: .opacity))
                         }
-                    )
+
+                        ForEach(eligibleProducts) { product in
+                            ProductCard(
+                                product: product,
+                                isSelected: selectedProduct?.id == product.id,
+                                onTap: {
+                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                        RCHaptics.selection()
+                                        if selectedProduct?.id == product.id {
+                                            selectedProduct = nil
+                                            selectedVariant = nil
+                                        } else {
+                                            selectedProduct = product
+                                            selectedVariant = product.variants.first(where: { $0.availableForSale && $0.price <= returnItemPrice })
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    .padding(.horizontal, RCSpacing.lg)
+                    .padding(.top, RCSpacing.md)
+                    .padding(.bottom, 100)
                 }
             }
-            .padding(.horizontal, RCSpacing.lg)
-            .padding(.top, RCSpacing.md)
-            .padding(.bottom, 100)
         }
         .background(Color.rcSurface)
+    }
+
+    private var emptyStateView: some View {
+        VStack(spacing: RCSpacing.lg) {
+            Image(systemName: "tag.slash")
+                .font(.system(size: 40))
+                .foregroundColor(.rcTextMuted)
+            Text("No exchange items available")
+                .font(.headline)
+                .foregroundColor(.rcTextPrimary)
+            Text("There are no products priced at or below your return item value.")
+                .font(.caption)
+                .foregroundColor(.rcTextSecondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(RCSpacing.xl)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func variantPicker(for product: ShopifyProduct) -> some View {

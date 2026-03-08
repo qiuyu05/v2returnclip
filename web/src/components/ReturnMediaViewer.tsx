@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdvancedImage, lazyload, responsive, placeholder } from '@cloudinary/react';
 import { buildReturnPhotoImage, buildThumbnailImage } from '../cloudinaryConfig.ts';
 import type { ReturnSubmission, ReturnStatus } from '../types/index.ts';
 
-// Mock data using Cloudinary demo account public_ids.
-// In production these come from the database after customers upload via the Swift app.
+const BACKEND_URL: string = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:3001';
+
+// Fallback demo data (shown when no real cases exist yet)
 const DEMO_RETURNS: ReturnSubmission[] = [
   {
     id: 'return_001',
@@ -13,14 +14,6 @@ const DEMO_RETURNS: ReturnSubmission[] = [
     status: 'approved',
     score: 92,
     publicIds: ['cld-sample-2', 'cld-sample-3', 'cld-sample-4'],
-  },
-  {
-    id: 'return_002',
-    orderId: '#RC-2026-67890',
-    item: 'Milano Sectional Sofa',
-    status: 'partial',
-    score: 71,
-    publicIds: ['cld-sample', 'cld-sample-5'],
   },
 ];
 
@@ -104,9 +97,32 @@ function TransformDemo({ publicId }: TransformDemoProps) {
 }
 
 export default function ReturnMediaViewer() {
+  const [returns, setReturns] = useState<ReturnSubmission[]>(DEMO_RETURNS);
+  const [isLive, setIsLive] = useState(false);
   const [selectedReturn, setSelectedReturn] = useState<ReturnSubmission>(DEMO_RETURNS[0]);
   const [selectedPhoto, setSelectedPhoto] = useState<number>(0);
   const [showTransforms, setShowTransforms] = useState<boolean>(false);
+
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/api/cases`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: { cases?: { id: string; orderId: string; itemId: string; status: string; notes?: string }[] } | null) => {
+        if (data?.cases && data.cases.length > 0) {
+          const live: ReturnSubmission[] = data.cases.map((c) => ({
+            id: c.id,
+            orderId: c.orderId,
+            item: c.itemId,
+            status: (c.status === 'executed' ? 'approved' : c.status === 'created' ? 'pending' : 'pending') as ReturnStatus,
+            score: 0,
+            publicIds: [],
+          }));
+          setReturns(live);
+          setSelectedReturn(live[0]);
+          setIsLive(true);
+        }
+      })
+      .catch(() => {/* keep demo data */});
+  }, []);
 
   const handleSelectReturn = (r: ReturnSubmission) => {
     setSelectedReturn(r);
@@ -119,13 +135,13 @@ export default function ReturnMediaViewer() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: '#1d1d1f' }}>Return Submissions</div>
         <div style={{ fontSize: 12, fontWeight: 600, background: '#f0f0ff', color: '#4f46e5', padding: '4px 10px', borderRadius: 20 }}>
-          {DEMO_RETURNS.length} recent • mock data
+          {returns.length} recent • {isLive ? 'live data' : 'demo data'}
         </div>
       </div>
 
       {/* Return selector */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        {DEMO_RETURNS.map((r) => (
+        {returns.map((r) => (
           <button
             key={r.id}
             onClick={() => handleSelectReturn(r)}

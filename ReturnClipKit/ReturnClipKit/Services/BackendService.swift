@@ -147,9 +147,25 @@ class BackendService {
 
     // MARK: - Exchange Products
 
-    /// New backend has no products endpoint — returns embedded mock products.
+    /// Fetches exchange products from backend (which pulls from Shopify if configured).
+    /// Falls back to embedded mock products if backend is unreachable.
     func fetchProducts(limit: Int = 20) async throws -> [ShopifyProduct] {
-        return mockExchangeProducts
+        guard let url = URL(string: "\(baseUrl)/api/products?limit=\(limit)") else {
+            return mockExchangeProducts
+        }
+        do {
+            var request = URLRequest(url: url)
+            request.httpMethod = "GET"
+            request.timeoutInterval = 15
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+                return mockExchangeProducts
+            }
+            let products = try decoder.decode(ShopifyProductsResponse.self, from: data).products
+            return products.isEmpty ? mockExchangeProducts : products
+        } catch {
+            return mockExchangeProducts
+        }
     }
 
     // MARK: - Health Check

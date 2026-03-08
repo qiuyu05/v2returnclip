@@ -47,6 +47,12 @@ export function getCase(caseId: string): ReturnCase | undefined {
     return returnCases.get(caseId);
 }
 
+export function listCases(): ReturnCase[] {
+    return Array.from(returnCases.values()).sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+}
+
 export function updateCaseStatus(caseId: string, status: ReturnCase['status']): void {
     const c = returnCases.get(caseId);
     if (c) {
@@ -128,6 +134,8 @@ export function getMockOrder(orderId: string): Order | null {
         'order_12345': sampleOrder,
         '67890': furnitureOrder,
         'order_67890': furnitureOrder,
+        '99999': premiumOrder,
+        'order_99999': premiumOrder,
     };
     return orders[orderId] || sampleOrder;
 }
@@ -155,19 +163,8 @@ const sampleOrder: Order = {
             price: 299.0,
             imageUrl: 'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=400',
         },
-        {
-            id: 'item_002',
-            productId: 'prod_throw_pillow',
-            variantId: 'var_cream',
-            title: 'Luxury Throw Pillow Set',
-            variantTitle: 'Cream - Set of 2',
-            sku: 'PILLOW-LUX-CRM-002',
-            quantity: 1,
-            price: 79.0,
-            imageUrl: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?w=400',
-        },
     ],
-    totalPrice: 378.0,
+    totalPrice: 299.0,
     currency: 'CAD',
     paymentMethod: { type: 'card', lastFour: '4242', brand: 'Visa' },
 };
@@ -195,6 +192,31 @@ const furnitureOrder: Order = {
     totalPrice: 1899.0,
     currency: 'CAD',
     paymentMethod: { type: 'applePay' },
+};
+
+const premiumOrder: Order = {
+    id: 'order_99999',
+    orderNumber: '#RC-2026-99999',
+    purchaseDate: new Date(Date.now() - 3 * 86400000).toISOString(),
+    purchaseLocation: 'Toronto, ON',
+    customerEmail: 'alex.johnson@returnclip-demo.com',
+    customerName: 'Alex Johnson (Live)',
+    lineItems: [
+        {
+            id: 'item_005',
+            productId: 'prod_vanguard_lounger',
+            variantId: 'var_leather_black',
+            title: 'Vanguard Lounger — Full Suite',
+            variantTitle: 'Obsidian Black / Leather',
+            sku: 'VLNG-OBK-LTHR-001',
+            quantity: 1,
+            price: 5000.0,
+            imageUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400',
+        },
+    ],
+    totalPrice: 5000.0,
+    currency: 'CAD',
+    paymentMethod: { type: 'card', lastFour: '9999', brand: 'Amex' },
 };
 
 const furnitureReturnPolicy: ReturnPolicy = {

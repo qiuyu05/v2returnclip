@@ -3,7 +3,8 @@
 
 import { logger } from './logger';
 import type { Order, ReturnPolicy } from '@/types';
-import { getMockOrder, getMockPolicy } from './db';
+import { getMockPolicy } from './db';
+import { lookupOrderFromSupabase } from './supabase';
 
 const STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || '';
 const ADMIN_TOKEN = process.env.SHOPIFY_ADMIN_TOKEN || '';
@@ -21,91 +22,77 @@ export async function lookupOrder(
     orderNumber: string,
     email: string
 ): Promise<{ order: Order; policy: ReturnPolicy; eligible: boolean } | null> {
-    if (!isShopifyConfigured()) {
-        logger.info('Shopify not configured, using mock order data', { orderNumber });
-        const order = getMockOrder(orderNumber);
-        const policy = getMockPolicy();
-        return order ? { order, policy, eligible: true } : null;
+    const policy = getMockPolicy();
+
+    // 1. Check Supabase first — orders seeded here are the source of truth
+    const supabaseOrder = await lookupOrderFromSupabase(orderNumber);
+    if (supabaseOrder) {
+        logger.info('Order served from Supabase', { orderNumber: supabaseOrder.orderNumber });
+        return { order: supabaseOrder, policy, eligible: true };
     }
 
-    try {
-        // Shopify Admin REST API: GET /admin/api/2024-01/orders.json
-        const searchName = orderNumber.replace('#', '');
-        const url = `https://${STORE_DOMAIN}/admin/api/2024-01/orders.json?name=${encodeURIComponent(searchName)}&status=any&limit=1`;
+    // 2. Try Shopify Admin API if configured
+    if (isShopifyConfigured()) {
+        try {
+            const searchName = orderNumber.replace('#', '').replace(/RC-\d{4}-/, '');
+            const url = `https://${STORE_DOMAIN}/admin/api/2024-01/orders.json?name=${encodeURIComponent(searchName)}&status=any&limit=1`;
 
-        const response = await fetch(url, {
-            headers: {
-                'X-Shopify-Access-Token': ADMIN_TOKEN,
-                'Content-Type': 'application/json',
-            },
-        });
+            const response = await fetch(url, {
+                headers: {
+                    'X-Shopify-Access-Token': ADMIN_TOKEN,
+                    'Content-Type': 'application/json',
+                },
+            });
 
-        if (!response.ok) {
-            logger.error('Shopify API error', { status: response.status, domain: STORE_DOMAIN });
-            // Graceful fallback
-            const order = getMockOrder(orderNumber);
-            const policy = getMockPolicy();
-            return order ? { order, policy, eligible: true } : null;
+            if (response.ok) {
+                const data = await response.json();
+                const shopifyOrder = data.orders?.[0];
+
+                if (shopifyOrder) {
+                    if (email && shopifyOrder.email?.toLowerCase() !== email.toLowerCase()) {
+                        logger.warn('Email mismatch for order', { orderNumber });
+                        return null;
+                    }
+
+                    const order: Order = {
+                        id: String(shopifyOrder.id),
+                        orderNumber: shopifyOrder.name || orderNumber,
+                        purchaseDate: shopifyOrder.created_at,
+                        purchaseLocation: shopifyOrder.billing_address?.city
+                            ? `${shopifyOrder.billing_address.city}, ${shopifyOrder.billing_address.province_code}`
+                            : 'Online',
+                        customerEmail: shopifyOrder.email || '',
+                        customerName: `${shopifyOrder.customer?.first_name || ''} ${shopifyOrder.customer?.last_name || ''}`.trim(),
+                        lineItems: (shopifyOrder.line_items || []).map((li: Record<string, unknown>) => ({
+                            id: String(li.id),
+                            productId: String(li.product_id),
+                            variantId: String(li.variant_id),
+                            title: String(li.title || ''),
+                            variantTitle: li.variant_title ? String(li.variant_title) : undefined,
+                            sku: String(li.sku || ''),
+                            quantity: Number(li.quantity) || 1,
+                            price: parseFloat(String(li.price)) || 0,
+                            imageUrl: undefined,
+                        })),
+                        totalPrice: parseFloat(shopifyOrder.total_price) || 0,
+                        currency: shopifyOrder.currency || 'CAD',
+                        paymentMethod: {
+                            type: 'card',
+                            lastFour: shopifyOrder.payment_gateway_names?.[0]?.slice(-4),
+                            brand: shopifyOrder.payment_gateway_names?.[0],
+                        },
+                    };
+
+                    return { order, policy, eligible: true };
+                }
+            }
+        } catch (err) {
+            logger.error('Shopify lookup failed', { error: String(err) });
         }
-
-        const data = await response.json();
-        const shopifyOrder = data.orders?.[0];
-
-        if (!shopifyOrder) {
-            logger.warn('Order not found in Shopify, falling back to mock data', { orderNumber });
-            // Fallback to mock data for demo orders
-            const mockOrder = getMockOrder(orderNumber);
-            const policy = getMockPolicy();
-            return mockOrder ? { order: mockOrder, policy, eligible: true } : null;
-        }
-
-        // Verify email matches (if provided)
-        if (email && shopifyOrder.email?.toLowerCase() !== email.toLowerCase()) {
-            logger.warn('Email mismatch for order', { orderNumber });
-            return null;
-        }
-
-        // Convert Shopify order to our Order type
-        const order: Order = {
-            id: String(shopifyOrder.id),
-            orderNumber: shopifyOrder.name || orderNumber,
-            purchaseDate: shopifyOrder.created_at,
-            purchaseLocation: shopifyOrder.billing_address?.city
-                ? `${shopifyOrder.billing_address.city}, ${shopifyOrder.billing_address.province_code}`
-                : 'Online',
-            customerEmail: shopifyOrder.email || '',
-            customerName: `${shopifyOrder.customer?.first_name || ''} ${shopifyOrder.customer?.last_name || ''}`.trim(),
-            lineItems: (shopifyOrder.line_items || []).map((li: Record<string, unknown>) => ({
-                id: String(li.id),
-                productId: String(li.product_id),
-                variantId: String(li.variant_id),
-                title: String(li.title || ''),
-                variantTitle: li.variant_title ? String(li.variant_title) : undefined,
-                sku: String(li.sku || ''),
-                quantity: Number(li.quantity) || 1,
-                price: parseFloat(String(li.price)) || 0,
-                imageUrl: undefined, // Would need product image API call
-            })),
-            totalPrice: parseFloat(shopifyOrder.total_price) || 0,
-            currency: shopifyOrder.currency || 'CAD',
-            paymentMethod: {
-                type: 'card',
-                lastFour: shopifyOrder.payment_gateway_names?.[0]?.slice(-4),
-                brand: shopifyOrder.payment_gateway_names?.[0],
-            },
-        };
-
-        const policy = getMockPolicy(); // In production: fetch merchant's policy from DB
-        const eligible = true; // In production: check return window
-
-        return { order, policy, eligible };
-    } catch (err) {
-        logger.error('Shopify lookup failed', { error: String(err) });
-        // Graceful fallback
-        const order = getMockOrder(orderNumber);
-        const policy = getMockPolicy();
-        return order ? { order, policy, eligible: true } : null;
     }
+
+    logger.warn('Order not found in Supabase or Shopify', { orderNumber });
+    return null;
 }
 
 /**
