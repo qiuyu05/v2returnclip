@@ -11,6 +11,14 @@ struct PhotoCaptureView: View {
     @State private var showDemoVideo = false
     
     private let requiredPhotoCount = 3
+
+    // Demo sofa images: poor / mid / perfect condition
+    private let demoPhotoUrls = [
+        "https://images.unsplash.com/photo-1567016432779-094069958ea5?w=800&q=80", // worn sofa - poor
+        "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=800&q=80", // used sofa - mid
+        "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80",    // pristine sofa - perfect
+    ]
+    @State private var isLoadingDemoPhotos = false
     
     var body: some View {
         ScrollView {
@@ -185,7 +193,7 @@ struct PhotoCaptureView: View {
                 }
             }
             .buttonStyle(RCPrimaryButtonStyle())
-            
+
             // Photo library button
             Button {
                 RCHaptics.selection()
@@ -198,6 +206,38 @@ struct PhotoCaptureView: View {
                 }
             }
             .buttonStyle(RCSecondaryButtonStyle())
+
+            // Demo quick-fill button
+            if flowState.capturedPhotos.isEmpty {
+                Button {
+                    RCHaptics.selection()
+                    Task { await loadDemoPhotos() }
+                } label: {
+                    HStack(spacing: RCSpacing.sm) {
+                        if isLoadingDemoPhotos {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .tint(.rcTextSecondary)
+                        } else {
+                            Image(systemName: "wand.and.stars")
+                                .font(.system(size: 15))
+                        }
+                        Text(isLoadingDemoPhotos ? "Loading demo photos..." : "Use Demo Photos")
+                            .font(.system(size: 15, weight: .medium))
+                    }
+                    .foregroundColor(.rcTextSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, RCSpacing.md)
+                    .background(Color.rcSurfaceElevated)
+                    .cornerRadius(RCRadius.lg)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: RCRadius.lg)
+                            .stroke(Color.rcBorder.opacity(0.6), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
+                .disabled(isLoadingDemoPhotos)
+            }
         }
     }
     
@@ -248,6 +288,18 @@ struct PhotoCaptureView: View {
             }
         }
         selectedPhotos = []
+    }
+
+    private func loadDemoPhotos() async {
+        await MainActor.run { isLoadingDemoPhotos = true }
+        for urlString in demoPhotoUrls {
+            guard let url = URL(string: urlString),
+                  let (data, _) = try? await URLSession.shared.data(from: url) else { continue }
+            await MainActor.run {
+                flowState.capturedPhotos.append(data)
+            }
+        }
+        await MainActor.run { isLoadingDemoPhotos = false }
     }
 }
 

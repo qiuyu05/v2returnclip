@@ -342,19 +342,55 @@ struct RefundOptionsView: View {
                 .frame(height: 1)
             
             if let selected = flowState.selectedRefundOption {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Your Refund")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.rcTextPrimary)
-                        Text(optionTitle(selected.type))
-                            .font(.system(size: 12))
-                            .foregroundColor(.rcTextMuted)
+                if selected.type == .exchange {
+                    if let product = flowState.selectedExchangeProduct,
+                       let variant = flowState.selectedExchangeVariant {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Exchange For")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.rcTextPrimary)
+                                Text("\(product.title) — \(variant.title)")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.rcTextMuted)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Text(String(format: "$%.2f", variant.price))
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .foregroundColor(.rcSuccess)
+                        }
+                    } else {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Exchange Item")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.rcTextPrimary)
+                                Text("Select a product above")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.rcTextMuted)
+                            }
+                            Spacer()
+                            Text("—")
+                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .foregroundColor(.rcTextMuted)
+                        }
                     }
-                    Spacer()
-                    Text("$\((selected.amount + (selected.bonusAmount ?? 0)).currencyString)")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .foregroundColor(.rcSuccess)
+                } else {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Your Refund")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.rcTextPrimary)
+                            Text(optionTitle(selected.type))
+                                .font(.system(size: 12))
+                                .foregroundColor(.rcTextMuted)
+                        }
+                        Spacer()
+                        Text("$\((selected.amount + (selected.bonusAmount ?? 0)).currencyString)")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundColor(.rcSuccess)
+                    }
                 }
             }
         }
