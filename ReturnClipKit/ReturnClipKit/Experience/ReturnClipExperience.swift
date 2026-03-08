@@ -307,7 +307,27 @@ struct ReturnClipExperience: View {
                 }
 
                 // 4. Run AI condition assessment (Gemini Vision on backend)
-                let assessment = try await BackendService.shared.assessCondition(caseId: caseId)
+                var assessment = try await BackendService.shared.assessCondition(caseId: caseId)
+
+                // Override with hardcoded demo score if a demo preset was used
+                if let demoScore = flowState.demoScoreOverride {
+                    let isPoor = demoScore < 50
+                    assessment = ConditionAssessment(
+                        overallQualityScore: demoScore,
+                        categoryScores: [
+                            CategoryScore(category: .damage,       score: isPoor ? 10 : 98, notes: isPoor ? "Visible tears and scuffs" : "No visible damage"),
+                            CategoryScore(category: .wear,         score: isPoor ? 20 : 96, notes: isPoor ? "Heavy signs of use" : "Appears unused"),
+                            CategoryScore(category: .cleanliness,  score: isPoor ? 15 : 97, notes: isPoor ? "Stains present" : "Clean condition"),
+                            CategoryScore(category: .completeness, score: isPoor ? 90 : 100, notes: "All parts present"),
+                        ],
+                        issues: isPoor ? [
+                            DetectedIssue(id: "d1", category: .damage, severity: .major, description: "Torn fabric", location: "cushion"),
+                            DetectedIssue(id: "d2", category: .cleanliness, severity: .moderate, description: "Water stain", location: "armrest"),
+                        ] : [],
+                        confidence: 0.97,
+                        analysisTimestamp: assessment.analysisTimestamp
+                    )
+                }
 
                 // 5. Get refund decision from backend
                 let decision = try await BackendService.shared.getRefundDecision(caseId: caseId)

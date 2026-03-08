@@ -19,7 +19,10 @@ class ReturnFlowState: ObservableObject {
     // Photos/Video
     @Published var capturedPhotos: [Data] = []
     @Published var capturedVideo: Data?
-    
+
+    // Demo mode override: hardcoded score bypasses Gemini result (nil = use real AI)
+    @Published var demoScoreOverride: Int? = nil
+
     // AI Analysis
     @Published var conditionAssessment: ConditionAssessment?
     @Published var refundDecision: RefundDecision?
@@ -84,6 +87,7 @@ class ReturnFlowState: ObservableObject {
         additionalNotes = ""
         capturedPhotos = []
         capturedVideo = nil
+        demoScoreOverride = nil
         conditionAssessment = nil
         refundDecision = nil
         selectedRefundOption = nil

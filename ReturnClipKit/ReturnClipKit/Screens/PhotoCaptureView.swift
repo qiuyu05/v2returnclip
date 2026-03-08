@@ -12,13 +12,10 @@ struct PhotoCaptureView: View {
     
     private let requiredPhotoCount = 3
 
-    // Demo sofa images: poor / mid / perfect condition
-    private let demoPhotoUrls = [
-        "https://images.unsplash.com/photo-1567016432779-094069958ea5?w=800&q=80", // worn sofa - poor
-        "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=800&q=80", // used sofa - mid
-        "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80",    // pristine sofa - perfect
-    ]
-    @State private var isLoadingDemoPhotos = false
+    // Demo sofa images — loaded for convenience; score is hardcoded by demoScoreOverride
+    private let sofaUrl1 = "https://res.cloudinary.com/dyrit94wr/image/upload/v1772961956/demo_poor_sofa.webp"
+    private let sofaUrl2 = "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80"
+    @State private var loadingDemo: String? = nil  // "1" | "2" | nil
     
     var body: some View {
         ScrollView {
@@ -207,36 +204,16 @@ struct PhotoCaptureView: View {
             }
             .buttonStyle(RCSecondaryButtonStyle())
 
-            // Demo quick-fill button
+            // Demo quick-fill buttons — pre-loads a sofa image so you skip the photo library
             if flowState.capturedPhotos.isEmpty {
-                Button {
-                    RCHaptics.selection()
-                    Task { await loadDemoPhotos() }
-                } label: {
-                    HStack(spacing: RCSpacing.sm) {
-                        if isLoadingDemoPhotos {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                                .tint(.rcTextSecondary)
-                        } else {
-                            Image(systemName: "wand.and.stars")
-                                .font(.system(size: 15))
-                        }
-                        Text(isLoadingDemoPhotos ? "Loading demo photos..." : "Use Demo Photos")
-                            .font(.system(size: 15, weight: .medium))
+                HStack(spacing: RCSpacing.sm) {
+                    demoButton(label: "Demo Photo 1", icon: "photo.fill", color: .rcPrimary, key: "1") {
+                        Task { await loadDemo(url: sofaUrl1, score: 15, key: "1") }
                     }
-                    .foregroundColor(.rcTextSecondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, RCSpacing.md)
-                    .background(Color.rcSurfaceElevated)
-                    .cornerRadius(RCRadius.lg)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: RCRadius.lg)
-                            .stroke(Color.rcBorder.opacity(0.6), lineWidth: 1)
-                    )
+                    demoButton(label: "Demo Photo 2", icon: "photo.fill", color: .rcPrimary, key: "2") {
+                        Task { await loadDemo(url: sofaUrl2, score: 95, key: "2") }
+                    }
                 }
-                .buttonStyle(PlainButtonStyle())
-                .disabled(isLoadingDemoPhotos)
             }
         }
     }
@@ -290,16 +267,42 @@ struct PhotoCaptureView: View {
         selectedPhotos = []
     }
 
-    private func loadDemoPhotos() async {
-        await MainActor.run { isLoadingDemoPhotos = true }
-        for urlString in demoPhotoUrls {
-            guard let url = URL(string: urlString),
-                  let (data, _) = try? await URLSession.shared.data(from: url) else { continue }
-            await MainActor.run {
-                flowState.capturedPhotos.append(data)
+    @ViewBuilder
+    private func demoButton(label: String, icon: String, color: Color, key: String, action: @escaping () -> Void) -> some View {
+        Button(action: { RCHaptics.selection(); action() }) {
+            VStack(spacing: 6) {
+                if loadingDemo == key {
+                    ProgressView().scaleEffect(0.8).tint(color)
+                } else {
+                    Image(systemName: icon).font(.system(size: 16)).foregroundColor(color)
+                }
+                Text(loadingDemo == key ? "Loading..." : label)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.rcTextSecondary)
+                    .multilineTextAlignment(.center)
             }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, RCSpacing.md)
+            .background(Color.rcSurfaceElevated)
+            .cornerRadius(RCRadius.lg)
+            .overlay(RoundedRectangle(cornerRadius: RCRadius.lg).stroke(Color.rcBorder.opacity(0.6), lineWidth: 1))
         }
-        await MainActor.run { isLoadingDemoPhotos = false }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(loadingDemo != nil)
+    }
+
+    private func loadDemo(url: String, score: Int, key: String) async {
+        await MainActor.run { loadingDemo = key }
+        guard let imageUrl = URL(string: url),
+              let (data, _) = try? await URLSession.shared.data(from: imageUrl) else {
+            await MainActor.run { loadingDemo = nil }
+            return
+        }
+        await MainActor.run {
+            flowState.capturedPhotos = [data]
+            flowState.demoScoreOverride = score
+            loadingDemo = nil
+        }
     }
 }
 

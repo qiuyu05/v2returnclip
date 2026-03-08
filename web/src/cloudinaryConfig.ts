@@ -68,3 +68,11 @@ export function buildReturnVideo(publicId: string, width = 720): CloudinaryVideo
 export function buildVideoThumbnailUrl(publicId: string, atSecond = 2): string {
   return `https://res.cloudinary.com/${CLOUD_NAME}/video/upload/so_${atSecond},q_auto,f_auto,w_720/${publicId}.jpg`;
 }
+
+/**
+ * Returns true if the URL is a Cloudinary-hosted image/video URL.
+ * Use this to decide whether to render with <AdvancedImage> vs plain <img>.
+ */
+export function isCloudinaryUrl(url: string): boolean {
+  return url.includes('res.cloudinary.com') || url.includes('.cloudinary.com');
+}
